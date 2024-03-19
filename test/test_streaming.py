@@ -7,7 +7,7 @@ import time
 from typing import Iterator
 
 import requests
-
+import wave
 
 def is_installed(lib_name: str) -> bool:
     lib = shutil.which(lib_name)
@@ -20,6 +20,28 @@ def save(audio: bytes, filename: str) -> None:
     with open(filename, "wb") as f:
         f.write(audio)
 
+def save_to_wav(audio_stream, output_file,save=True):
+    # Ensure output_file is not None and has a valid value
+    if not output_file:
+        raise ValueError("Output file path must be specified and not None.")
+
+    print("Saving to ", output_file)
+
+    # Assuming the audio stream is in PCM format, 16-bit samples, 22050 Hz, mono
+    # These values should be adjusted to match the actual audio format
+    sample_rate = 22050
+    sample_width = 2  # 2 bytes for 16 bits
+    channels = 1  # mono audio
+
+    with wave.open(output_file, 'wb') as wav_file:
+        wav_file.setnchannels(channels)
+        wav_file.setsampwidth(sample_width)
+        wav_file.setframerate(sample_rate)
+
+        for chunk in audio_stream:
+            if chunk is not None:
+                wav_file.writeframes(chunk)
+
 
 def stream_ffplay(audio_stream, output_file, save=True):
     if not save:
@@ -28,18 +50,20 @@ def stream_ffplay(audio_stream, output_file, save=True):
         print("Saving to ", output_file)
         ffplay_cmd = ["ffmpeg", "-probesize", "1024", "-i", "-", output_file]
 
-    ffplay_proc = subprocess.Popen(ffplay_cmd, stdin=subprocess.PIPE)
+    # ffplay_proc = subprocess.Popen(ffplay_cmd, stdin=subprocess.PIPE)
     for chunk in audio_stream:
         if chunk is not None:
-            ffplay_proc.stdin.write(chunk)
+            # ffplay_proc.stdin.write(chunk)
+            pass
 
     # close on finish
-    ffplay_proc.stdin.close()
-    ffplay_proc.wait()
+    # ffplay_proc.stdin.close()
+    # ffplay_proc.wait()
 
 
 def tts(text, speaker, language, server_url, stream_chunk_size) -> Iterator[bytes]:
     start = time.perf_counter()
+    start_ = time.time()
     speaker["text"] = text
     speaker["language"] = language
     speaker["stream_chunk_size"] = stream_chunk_size  # you can reduce it to get faster response, but degrade quality
@@ -56,14 +80,17 @@ def tts(text, speaker, language, server_url, stream_chunk_size) -> Iterator[byte
         sys.exit(1)
 
     first = True
-    for chunk in res.iter_content(chunk_size=512):
+    for i, chunk in enumerate(res.iter_content(chunk_size=512)):
         if first:
             end = time.perf_counter()
             print(f"Time to first chunk: {end-start}s", file=sys.stderr)
+            print(f"Time to first chunk: {time.time()-start_}s", file=sys.stderr)
             first = False
         if chunk:
             yield chunk
-
+    end = time.perf_counter()
+    print("total time to get all chunks:", end - start)
+    print("total time to get all chunks:", time.time() - start_)
     print("⏱️ response.elapsed:", res.elapsed)
 
 
@@ -77,7 +104,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--text",
-        default="It took me quite a long time to develop a voice and now that I have it I am not going to be silent.",
+        default=" I am determined to use it to advocate for those who still struggle to be heard, to stand up for what I believe in, and to contribute to the conversations that shape our world.",
         help="text input for TTS"
     )
     parser.add_argument(
@@ -87,7 +114,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--output_file",
-        default=None,
+        default="output.wav",
         help="Save TTS output to given filename"
     )
     parser.add_argument(
@@ -102,7 +129,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--stream_chunk_size",
-        default="20",
+        default="10",
         help="Stream chunk size , 20 default, reducing will get faster latency but may degrade quality"
     )
     args = parser.parse_args()

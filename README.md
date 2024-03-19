@@ -81,3 +81,12 @@ $ cd xtts-streaming-server/test
 $ python -m pip install -r requirements.txt
 $ python test_streaming.py
 ```
+
+### Deepspeed compatible Installation
+
+1.  Make virtual env and activate
+2. pip3 install torch torchvision torchaudio (this might be different depending on the cuda toolkit version intalled on your machine)
+3. pip3 install -r server/requirements.txt
+4. check deepspeed is installed correctly: ds_report
+5. cd server & uvicorn main:app first time it will download the model, this will take some time.
+6. cd test & python test_streaming.py (you may have to install some dependencies)

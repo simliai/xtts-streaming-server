@@ -15,6 +15,7 @@ from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
 from TTS.utils.generic_utils import get_user_data_dir
 from TTS.utils.manage import ModelManager
+import time
 
 torch.set_num_threads(int(os.environ.get("NUM_THREADS", os.cpu_count())))
 device = torch.device("cuda" if os.environ.get("USE_CPU", "0") == "0" else "cpu")
@@ -38,7 +39,7 @@ print("Loading XTTS", flush=True)
 config = XttsConfig()
 config.load_json(os.path.join(model_path, "config.json"))
 model = Xtts.init_from_config(config)
-model.load_checkpoint(config, checkpoint_dir=model_path, eval=True, use_deepspeed=True if device == "cuda" else False)
+model.load_checkpoint(config, checkpoint_dir=model_path, eval=True, use_deepspeed=True)
 model.to(device)
 print("XTTS Loaded.", flush=True)
 
@@ -150,20 +151,22 @@ class TTSInputs(BaseModel):
 
 @app.post("/tts")
 def predict_speech(parsed_input: TTSInputs):
+    start = time.time()
     speaker_embedding = torch.tensor(parsed_input.speaker_embedding).unsqueeze(0).unsqueeze(-1)
     gpt_cond_latent = torch.tensor(parsed_input.gpt_cond_latent).reshape((-1, 1024)).unsqueeze(0)
     text = parsed_input.text
     language = parsed_input.language
-
+    print(f"Time to parse inputs: {time.time()-start}s")
     out = model.inference(
         text,
         language,
         gpt_cond_latent,
         speaker_embedding,
     )
+    print(f"Time to inference: {time.time()-start}s")
 
     wav = postprocess(torch.tensor(out["wav"]))
-
+    print(f"Time to postprocess: {time.time()-start}s")
     return encode_audio_common(wav.tobytes())
 
 

@@ -4,6 +4,7 @@ import base64
 import tempfile
 import json
 import os
+import time
 
 
 SERVER_URL = 'http://localhost:8000'
@@ -43,6 +44,7 @@ def clone_speaker(upload_file, clone_speaker_name, cloned_speaker_names):
     return upload_file, clone_speaker_name, cloned_speaker_names, gr.Dropdown.update(choices=cloned_speaker_names)
 
 def tts(text, speaker_type, speaker_name_studio, speaker_name_custom, lang):
+    start = time.time()
     embeddings = STUDIO_SPEAKERS[speaker_name_studio] if speaker_type == 'Studio' else cloned_speakers[speaker_name_custom]
     generated_audio = requests.post(
         SERVER_URL + "/tts",
@@ -53,9 +55,11 @@ def tts(text, speaker_type, speaker_name_studio, speaker_name_custom, lang):
             "gpt_cond_latent": embeddings["gpt_cond_latent"]
         }
     ).content
+
     generated_audio_path = os.path.join("demo_outputs", "generated_audios", next(tempfile._get_candidate_names()) + ".wav")
     with open(generated_audio_path, "wb") as fp:
         fp.write(base64.b64decode(generated_audio))
+        print("total time to get all chunks:", time.time() - start)
         return fp.name
 
 with gr.Blocks() as demo:
